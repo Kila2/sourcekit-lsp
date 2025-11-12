@@ -23,6 +23,7 @@ import ToolchainRegistry
 package struct BuildSystemSpec {
   package enum Kind {
     case buildServer
+    case bitskyJSONCompilationDatabase
     case jsonCompilationDatabase
     case fixedCompilationDatabase
     case swiftPM

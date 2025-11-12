@@ -230,6 +230,7 @@ private extension BuildSystemSpec {
   func createBuildSystemAdapter(
     toolchainRegistry: ToolchainRegistry,
     options: SourceKitLSPOptions,
+    connectionToClient:BuildSystemManagerConnectionToClient,
     buildSystemHooks: BuildSystemHooks,
     messagesToSourceKitLSPHandler: any MessageHandler
   ) async -> BuildSystemAdapter? {
@@ -248,6 +249,18 @@ private extension BuildSystemSpec {
       }
       logger.log("Created external build server at \(projectRoot)")
       return .external(buildSystem)
+    case .bitskyJSONCompilationDatabase:
+      return await createBuiltInBuildSystemAdapter(
+        messagesToSourceKitLSPHandler: messagesToSourceKitLSPHandler,
+        buildSystemHooks: buildSystemHooks
+      ) { connectionToSourceKitLSP in
+        try await BitSkyJSONCompilationDatabaseBuildSystem(
+          configPath: configPath,
+          toolchainRegistry: toolchainRegistry,
+          connectionToClient: connectionToClient,
+          connectionToSourceKitLSP: connectionToSourceKitLSP
+        )
+      }
     case .jsonCompilationDatabase:
       return await createBuiltInBuildSystemAdapter(
         messagesToSourceKitLSPHandler: messagesToSourceKitLSPHandler,
@@ -449,10 +462,12 @@ package actor BuildSystemManager: QueueBasedMessageHandler {
     self.toolchainRegistry = toolchainRegistry
     self.options = options
     self.connectionToClient = connectionToClient
+    
     self.configPath = buildSystemSpec?.configPath
     self.buildSystemAdapter = await buildSystemSpec?.createBuildSystemAdapter(
       toolchainRegistry: toolchainRegistry,
       options: options,
+      connectionToClient: connectionToClient,
       buildSystemHooks: buildSystemHooks,
       messagesToSourceKitLSPHandler: WeakMessageHandler(self)
     )
@@ -796,6 +811,7 @@ package actor BuildSystemManager: QueueBasedMessageHandler {
     return await orLog("Getting targets for source file") {
       var result: SourceFileInfo? = nil
       let filesAndDirectories = try await sourceFilesAndDirectories()
+      // po filesAndDirectories.files.filter{$0.key.stringValue.hasSuffix("BDABTestManager+Cache.h")}
       if let info = filesAndDirectories.files[document] {
         result = result?.merging(info) ?? info
       }
@@ -1322,7 +1338,16 @@ package actor BuildSystemManager: QueueBasedMessageHandler {
     }
 
     let mainFiles = await mainFiles(containing: uri)
-    if mainFiles.contains(uri) {
+    let withoutHeaderMainFiles = mainFiles.filter { documentUri in
+      documentUri.fileURL?.pathExtension != "h"
+    }
+    let headerMainFiles = mainFiles.filter { documentUri in
+      documentUri.fileURL?.pathExtension == "h"
+    }
+    if withoutHeaderMainFiles.contains(uri) {
+      // If the main files contain the file itself, prefer to use that one
+      return uri
+    } else if headerMainFiles.contains(uri) {
       // If the main files contain the file itself, prefer to use that one
       return uri
     } else if let mainFile = mainFiles.min(by: { $0.pseudoPath < $1.pseudoPath }) {

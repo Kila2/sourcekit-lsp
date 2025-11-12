@@ -303,7 +303,9 @@ package final class Workspace: Sendable, BuildSystemManagerDelegate {
     let index: UncheckedIndex?
     if let indexStorePath, let indexDatabasePath, let libPath = await toolchainRegistry.default?.libIndexStore {
       do {
-        indexDelegate = SourceKitIndexDelegate()
+        indexDelegate = SourceKitIndexDelegate{(notification: LanguageServerProtocol.NotificationType) in
+          sourceKitLSPServer.client.send(notification)
+        }
         let prefixMappings =
           (indexOptions.indexPrefixMap ?? [:])
           .map { PathMapping(original: $0.key, replacement: $0.value) }
@@ -342,6 +344,9 @@ package final class Workspace: Sendable, BuildSystemManagerDelegate {
         }
       } catch {
         index = nil
+        sourceKitLSPServer.client.send(
+          LogMessageNotification(type: .log, message: "[LSP]indexstore-database-loading-error", logName: "[LSP]")
+        )
         logger.error("Failed to open IndexStoreDB: \(error.localizedDescription)")
       }
     } else {

@@ -153,14 +153,13 @@ package struct JSONCompilationDatabase: Equatable, Codable {
     return []
   }
 
-  private mutating func add(_ command: CompilationDatabaseCompileCommand) {
+  mutating func add(_ command: CompilationDatabaseCompileCommand) {
     let uri = command.uri
     pathToCommands[uri, default: []].append(commands.count)
 
     if let symlinkTarget = uri.symlinkTarget {
       pathToCommands[symlinkTarget, default: []].append(commands.count)
     }
-
     commands.append(command)
   }
 }
@@ -179,5 +178,63 @@ fileprivate extension String {
     #else
     return self.hasPrefix("/")
     #endif
+  }
+}
+
+package struct BitSkyCompilationDatabase: Equatable, Codable {
+  private var pathToCommands: [DocumentURI: [Int]] = [:]
+  var commands: [CompilationDatabaseCompileCommand] = []
+
+  package init(_ commands: [CompilationDatabaseCompileCommand] = []) {
+    for command in commands {
+      add(command)
+    }
+  }
+
+  package init(from decoder: Decoder) throws {
+    var container = try decoder.unkeyedContainer()
+    while !container.isAtEnd {
+      self.add(try container.decode(CompilationDatabaseCompileCommand.self))
+    }
+  }
+
+  /// Loads the compilation database located in `directory`, if any.
+  ///
+  /// - Returns: `nil` if `compile_commands.json` was not found
+  package init(directory: URL) throws {
+    let path = directory.appendingPathComponent(JSONCompilationDatabaseBuildSystem.dbName)
+    try self.init(file: path)
+  }
+
+  /// Loads the compilation database from `file`
+  /// - Returns: `nil` if the file does not exist
+  package init(file: URL) throws {
+    let data = try Data(contentsOf: file)
+    self = try JSONDecoder().decode(BitSkyCompilationDatabase.self, from: data)
+  }
+
+  package func encode(to encoder: Encoder) throws {
+    var container = encoder.unkeyedContainer()
+    try commands.forEach { try container.encode($0) }
+  }
+
+  package subscript(_ uri: DocumentURI) -> [CompilationDatabaseCompileCommand] {
+    if let indices = pathToCommands[uri] {
+      return indices.map { commands[$0] }
+    }
+    if let fileURL = try? uri.fileURL?.realpath, let indices = pathToCommands[DocumentURI(fileURL)] {
+      return indices.map { commands[$0] }
+    }
+    return []
+  }
+
+  mutating func add(_ command: CompilationDatabaseCompileCommand) {
+    let uri = command.uri
+    pathToCommands[uri, default: []].append(commands.count)
+
+    if let symlinkTarget = uri.symlinkTarget {
+      pathToCommands[symlinkTarget, default: []].append(commands.count)
+    }
+    commands.append(command)
   }
 }

@@ -215,9 +215,11 @@ actor SyntacticTestIndex {
     // Over-subscribe the processor count in case one batch finishes more quickly than another.
     let batches = uris.partition(intoNumberOfBatches: ProcessInfo.processInfo.processorCount * 4)
     for batch in batches {
-      self.indexingQueue.async(priority: .low, metadata: .index(Set(batch))) {
-        for uri in batch {
-          await self.rescanFileAssumingOnQueue(uri)
+      autoreleasepool {
+        self.indexingQueue.async(priority: .low, metadata: .index(Set(batch))) {
+          for uri in batch {
+              await self.rescanFileAssumingOnQueue(uri)
+          }
         }
       }
     }

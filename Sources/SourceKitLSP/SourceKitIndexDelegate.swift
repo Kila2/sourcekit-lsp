@@ -15,20 +15,49 @@ import IndexStoreDB
 import LanguageServerProtocolExtensions
 import SKLogging
 import SwiftExtensions
+import LanguageServerProtocol
 
 /// `IndexDelegate` for the SourceKit workspace.
 actor SourceKitIndexDelegate: IndexDelegate {
   /// Registered `MainFilesDelegate`s to notify when main files change.
   var mainFilesChangedCallbacks: [@Sendable () async -> Void] = []
-
+  var sendNotificationThunk: (_ notification: any LanguageServerProtocol.NotificationType) -> Void
   /// The count of pending unit events. Whenever this transitions to 0, it represents a time where
   /// the index finished processing known events. Of course, that may have already changed by the
   /// time we are notified.
   let pendingUnitCount = AtomicInt32(initialValue: 0)
-
-  package init() {}
-
+  private var _isPollingIndex: Bool = false
+  
+  var isPollingIndex: Bool {
+    set {
+      if newValue != _isPollingIndex {
+        if (newValue) {
+          self.sendNotificationThunk(LogMessageNotification(type: .log, message: "[LSP]indexstore-database-loading-start", logName: "[LSP]"))
+        } else {
+          self.sendNotificationThunk(LogMessageNotification(type: .log, message: "[LSP]indexstore-database-loading-end", logName: "[LSP]"))
+        }
+        _isPollingIndex = newValue
+      }
+    }
+    get {
+      return _isPollingIndex
+    }
+  }
+  
+  package init(sendNotificationThunk: @escaping (_ notification: any LanguageServerProtocol.NotificationType) -> Void) {
+    self.sendNotificationThunk = sendNotificationThunk
+  }
+  
+  private func updatePollingIndexState(value:Bool) {
+    self.isPollingIndex = value
+  }
+  
   nonisolated package func processingAddedPending(_ count: Int) {
+    Task {
+      if await (self.isPollingIndex == false){
+        await updatePollingIndexState(value: true)
+      }
+    }
     pendingUnitCount.value += Int32(count)
   }
 
@@ -53,6 +82,9 @@ actor SourceKitIndexDelegate: IndexDelegate {
 
   private func indexChanged() async {
     logger.debug("IndexStoreDB changed")
+    if (self.isPollingIndex == true){
+      updatePollingIndexState(value: false)
+    }
     for callback in mainFilesChangedCallbacks {
       await callback()
     }

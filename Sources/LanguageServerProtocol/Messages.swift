@@ -91,6 +91,9 @@ public let builtinRequests: [_RequestType.Type] = [
   WorkspaceSymbolResolveRequest.self,
   WorkspaceSymbolsRequest.self,
   WorkspaceTestsRequest.self,
+  ParseDiagnosticsFileRequest.self,
+  ParseDiagnosticsFilesRequest.self,
+  WorkspaceSymbolTreeRequest.self
 ]
 
 /// The set of known notifications.

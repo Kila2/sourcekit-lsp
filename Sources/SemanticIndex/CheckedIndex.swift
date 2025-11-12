@@ -147,6 +147,13 @@ package final class CheckedIndex {
     }
     return index.symbols(inFilePath: path)
   }
+    
+  package func symbolOccurrences(inFilePath path: String) -> [SymbolOccurrence] {
+    guard self.hasUpToDateUnit(for: DocumentURI(filePath: path, isDirectory: false), outputPath: .notSupported) else {
+      return []
+    }
+    return index.symbolOccurrences(inFilePath: path)
+  }
 
   /// Returns all unit test symbol in unit files that reference one of the main files in `mainFilePaths`.
   package func unitTests(referencedByMainFiles mainFilePaths: [String]) -> [SymbolOccurrence] {

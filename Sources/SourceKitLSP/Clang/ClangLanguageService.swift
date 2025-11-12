@@ -657,7 +657,7 @@ private struct ClangBuildSettings: Equatable {
         "-working-directory", workingDirectory,
       ])
     }
-
+    // po arguments.joined(separator: " ").write(toFile: "/tmp/build.sh", atomically: true, encoding: .utf8)
     self.compilerArgs = arguments
     self.workingDirectory = settings.workingDirectory ?? ""
     self.isFallback = settings.isFallback

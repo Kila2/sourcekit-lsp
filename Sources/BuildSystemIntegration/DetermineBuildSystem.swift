@@ -40,6 +40,11 @@ private func searchForCompilationDatabaseConfig(
     .compactMap { searchPath in
       let path = workspaceFolder.appending(searchPath)
 
+      let bitskyJsonPath = path.appendingPathComponent(BitSkyJSONCompilationDatabaseBuildSystem.dbName)
+      if FileManager.default.isFile(at: bitskyJsonPath) && bitskyJsonPath.absoluteString.contains("/.bitsky/") {
+        return BuildSystemSpec(kind: .bitskyJSONCompilationDatabase, projectRoot: workspaceFolder, configPath: bitskyJsonPath)
+      }
+
       let jsonPath = path.appendingPathComponent(JSONCompilationDatabaseBuildSystem.dbName)
       if FileManager.default.isFile(at: jsonPath) {
         return BuildSystemSpec(kind: .jsonCompilationDatabase, projectRoot: workspaceFolder, configPath: jsonPath)

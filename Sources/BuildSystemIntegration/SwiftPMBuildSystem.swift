@@ -336,19 +336,19 @@ package actor SwiftPMBuildSystem: BuiltInBuildSystem {
     while true {
       loadAttempt += 1
       do {
-        return try await BuildDescription.load(
-          destinationBuildParameters: destinationBuildParameters,
-          toolsBuildParameters: toolsBuildParameters,
-          packageGraph: modulesGraph,
-          pluginConfiguration: pluginConfiguration,
-          traitConfiguration: traitConfiguration,
-          disableSandbox: options.swiftPMOrDefault.disableSandbox ?? false,
-          scratchDirectory: swiftPMWorkspace.location.scratchDirectory.asURL,
-          fileSystem: localFileSystem,
-          observabilityScope: observabilitySystem.topScope.makeChildScope(
-            description: "Create SwiftPM build description"
-          )
-        )
+//        return try await BuildDescription.load(
+//          destinationBuildParameters: destinationBuildParameters,
+//          toolsBuildParameters: toolsBuildParameters,
+//          packageGraph: modulesGraph,
+//          pluginConfiguration: pluginConfiguration,
+//          traitConfiguration: traitConfiguration,
+//          disableSandbox: options.swiftPMOrDefault.disableSandbox ?? false,
+//          scratchDirectory: swiftPMWorkspace.location.scratchDirectory.asURL,
+//          fileSystem: localFileSystem,
+//          observabilityScope: observabilitySystem.topScope.makeChildScope(
+//            description: "Create SwiftPM build description"
+//          )
+//        )
       } catch let error as NSError {
         #if os(Windows)
         if error.domain == NSCocoaErrorDomain, error.code == CocoaError.fileWriteNoPermission.rawValue,

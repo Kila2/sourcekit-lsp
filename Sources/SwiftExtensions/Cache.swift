@@ -38,7 +38,7 @@ package class Cache<Key: Sendable & Hashable, Result: Sendable> {
   package func getDerived(
     isolation: isolated any Actor,
     _ key: Key,
-    canReuseKey: @Sendable @escaping (Key) -> Bool,
+    canReuseKey: @Sendable @escaping (Key) async -> Bool,
     transform: @Sendable @escaping (_ cachedResult: Result) -> Result
   ) async throws -> Result? {
     if let cached = storage[key] {
@@ -48,7 +48,7 @@ package class Cache<Key: Sendable & Hashable, Result: Sendable> {
 
     // See if don't have an entry for this key, see if we can derive the value from a cached entry.
     for (cachedKey, cachedValue) in storage {
-      guard canReuseKey(cachedKey) else {
+      guard await canReuseKey(cachedKey) else {
         continue
       }
       let transformed = Task { try await transform(cachedValue.value) }

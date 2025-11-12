@@ -136,6 +136,8 @@ package actor SourceKitLSPServer {
   /// The files that we asked the client to watch.
   private var watchers: Set<FileSystemWatcher> = []
 
+  public let diaParserService: BitSkyDiaParserService
+
   private static func maxConcurrentIndexingTasksByPriority(
     isIndexingPaused: Bool,
     options: SourceKitLSPOptions
@@ -155,7 +157,7 @@ package actor SourceKitLSPServer {
       (TaskPriority.low, lowPriorityCores),
     ]
   }
-
+  
   /// Creates a language server for the given client.
   package init(
     client: Connection,
@@ -174,6 +176,7 @@ package actor SourceKitLSPServer {
       maxConcurrentTasksByPriority: Self.maxConcurrentIndexingTasksByPriority(isIndexingPaused: false, options: options)
     )
     self.indexProgressManager = nil
+    self.diaParserService = BitSkyDiaParserService()
     self.indexProgressManager = IndexProgressManager(sourceKitLSPServer: self)
     self.sourcekitdCrashedWorkDoneProgress = SharedWorkDoneProgressManager(
       sourceKitLSPServer: self,
@@ -299,15 +302,16 @@ package actor SourceKitLSPServer {
     var bestWorkspace = await self.workspaces.asyncFirst {
       await !$0.buildSystemManager.targets(for: uri).isEmpty
     }
-    if bestWorkspace == nil {
-      // We weren't able to handle the document with any of the known workspaces. See if any of the document's parent
-      // directories contain a workspace that might be able to handle the document
-      if let workspace = await self.findImplicitWorkspace(for: uri) {
-        logger.log("Opening implicit workspace at \(workspace.rootUri.forLogging) to handle \(uri.forLogging)")
-        self.workspacesAndIsImplicit.append((workspace: workspace, isImplicit: true))
-        bestWorkspace = workspace
-      }
-    }
+    // FIXME: bitsky 禁止隐式查找workspace导致效率低下。
+//    if bestWorkspace == nil {
+//      // We weren't able to handle the document with any of the known workspaces. See if any of the document's parent
+//      // directories contain a workspace that might be able to handle the document
+//      if let workspace = await self.findImplicitWorkspace(for: uri) {
+//        logger.log("Opening implicit workspace at \(workspace.rootUri.forLogging) to handle \(uri.forLogging)")
+//        self.workspacesAndIsImplicit.append((workspace: workspace, isImplicit: true))
+//        bestWorkspace = workspace
+//      }
+//    }
     let workspace = bestWorkspace ?? self.workspaces.first
     self.workspaceForUri[uri] = WeakWorkspace(workspace)
     return workspace
@@ -830,6 +834,12 @@ extension SourceKitLSPServer: QueueBasedMessageHandler {
     case let request as RequestAndReply<WorkspaceTestsRequest>:
       await request.reply { try await workspaceTests(request.params) }
     // IMPORTANT: When adding a new entry to this switch, also add it to the `MessageHandlingDependencyTracker` initializer.
+    case let request as RequestAndReply<ParseDiagnosticsFileRequest>:
+      await request.reply { try await parseDiagnosticsFile(request.params) }
+    case let request as RequestAndReply<ParseDiagnosticsFilesRequest>:
+      await request.reply { try await parseDiagnosticsFiles(request.params) }
+    case let request as RequestAndReply<WorkspaceSymbolTreeRequest>:
+      await request.reply { try await handleWorkspaceSymbolTree(request.params) }
     default:
       await request.reply { throw ResponseError.methodNotFound(Request.method) }
     }
